@@ -18,6 +18,8 @@ def optimize_donchian(ohlc: pd.DataFrame):
     best_lookback = -1
     r = np.log(ohlc['close']).diff().shift(-1)
     for lookback in range(12, 169):
+        if lookback % 20 == 0:
+            print(f"  Testing lookback {lookback}...")
         signal = donchian_breakout(ohlc, lookback)
         sig_rets = signal * r
         sig_pf = sig_rets[sig_rets > 0].sum() / sig_rets[sig_rets < 0].abs().sum()
@@ -47,14 +49,24 @@ def walkforward_donch(ohlc: pd.DataFrame, train_lookback: int = 24 * 365 * 4, tr
 
 if __name__ == '__main__':
 
-    df = pd.read_parquet('BTCUSD3600.pq')
-    df.index = df.index.astype('datetime64[s]')
+    # 读取 CSV 数据
+    print("Loading data...")
+    df = pd.read_csv('BTCUSDT_1h_merged.csv')
 
-    df = df[(df.index.year >= 2016) & (df.index.year < 2020)] 
+    # 将 timestamp 转换为 datetime 并设为索引
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='us')
+    df.set_index('timestamp', inplace=True)
+
+    # 筛选 2017年8月到2020年8月的数据
+    df = df[(df.index >= '2017-08-01') & (df.index < '2020-09-01')]
+    print(f"Data shape: {df.shape}")
+    print(f"Data range: {df.index[0]} to {df.index[-1]}")
+
+    print("Optimizing Donchian parameters...")
     best_lookback, best_real_pf = optimize_donchian(df)
+    print(f"Best lookback: {best_lookback}, Best profit factor: {best_real_pf:.4f}")
 
-    # Best lookback = 19, best_real_pf = 1.08
-    
+    print("Generating signals...")
     signal = donchian_breakout(df, best_lookback) 
 
     df['r'] = np.log(df['close']).diff().shift(-1)
