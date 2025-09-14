@@ -58,7 +58,7 @@ if __name__ == '__main__':
     df.set_index('timestamp', inplace=True)
 
     # 筛选 2017年8月到2020年8月的数据
-    df = df[(df.index >= '2017-08-01') & (df.index < '2020-09-01')]
+    df = df[(df.index >= '2017-08-01') & (df.index < '2020-01-01')]
     print(f"Data shape: {df.shape}")
     print(f"Data range: {df.index[0]} to {df.index[-1]}")
 

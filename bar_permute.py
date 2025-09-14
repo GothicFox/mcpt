@@ -91,16 +91,27 @@ def get_permutation(
         return perm_ohlc[0]
 
 if __name__ == '__main__':
-    
+
     import matplotlib.pyplot as plt
-    
-    btc_real = pd.read_parquet('BTCUSD3600.pq')
-    btc_real.index = btc_real.index.astype('datetime64[s]')
-    btc_real = btc_real[(btc_real.index.year >= 2018) & (btc_real.index.year < 2020)]
+
+    # 定义时间范围（可以精确到月份）
+    start_date = '2018-01-01'  # 开始日期
+    end_date = '2025-08-01'    # 结束日期
+
+    # 读取BTC CSV文件
+    btc_real = pd.read_csv('BTCUSDT_1h_merged.csv')
+    # 将timestamp从微秒转换为datetime
+    btc_real['timestamp'] = pd.to_datetime(btc_real['timestamp'], unit='us')
+    btc_real.set_index('timestamp', inplace=True)
+    # 只保留OHLC列
+    btc_real = btc_real[['open', 'high', 'low', 'close']]
+    # 筛选指定时间范围的数据
+    btc_real = btc_real[(btc_real.index >= start_date) & (btc_real.index <= end_date)]
+    print(f"BTC数据范围: {btc_real.index.min()} 到 {btc_real.index.max()}, 共{len(btc_real)}条")
 
     btc_perm = get_permutation(btc_real)
 
-    btc_real_r = np.log(btc_real['close']).diff() 
+    btc_real_r = np.log(btc_real['close']).diff()
     btc_perm_r = np.log(btc_perm['close']).diff()
 
     print(f"Mean. REAL: {btc_real_r.mean():14.6f} PERM: {btc_perm_r.mean():14.6f}")
@@ -108,14 +119,28 @@ if __name__ == '__main__':
     print(f"Skew. REAL: {btc_real_r.skew():14.6f} PERM: {btc_perm_r.skew():14.6f}")
     print(f"Kurt. REAL: {btc_real_r.kurt():14.6f} PERM: {btc_perm_r.kurt():14.6f}")
 
-    eth_real = pd.read_parquet('ETHUSD3600.pq')
-    eth_real.index = eth_real.index.astype('datetime64[s]')
-    eth_real = eth_real[(eth_real.index.year >= 2018) & (eth_real.index.year < 2020)]
+    # 读取ETH CSV文件（没有header）
+    columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time',
+               'quote_volume', 'trades_count', 'taker_buy_volume', 'taker_buy_quote_volume', 'ignore']
+    eth_real = pd.read_csv('ETHUSDT_1h_merged.csv', header=None, names=columns)
+    # 将timestamp从微秒转换为datetime
+    eth_real['timestamp'] = pd.to_datetime(eth_real['timestamp'], unit='us')
+    eth_real.set_index('timestamp', inplace=True)
+    # 只保留OHLC列
+    eth_real = eth_real[['open', 'high', 'low', 'close']]
+    # 筛选指定时间范围的数据（与BTC相同的范围）
+    eth_real = eth_real[(eth_real.index >= start_date) & (eth_real.index <= end_date)]
+    print(f"ETH数据范围: {eth_real.index.min()} 到 {eth_real.index.max()}, 共{len(eth_real)}条")
     eth_real_r = np.log(eth_real['close']).diff()
     
-    print("") 
+    print("")
 
-    permed = get_permutation([btc_real, eth_real])
+    # 确保两个数据集有相同的索引
+    common_index = btc_real.index.intersection(eth_real.index)
+    btc_real_aligned = btc_real.loc[common_index]
+    eth_real_aligned = eth_real.loc[common_index]
+
+    permed = get_permutation([btc_real_aligned, eth_real_aligned])
     btc_perm = permed[0]
     eth_perm = permed[1]
     
@@ -123,18 +148,18 @@ if __name__ == '__main__':
     eth_perm_r = np.log(eth_perm['close']).diff()
     print(f"BTC&ETH Correlation REAL: {btc_real_r.corr(eth_real_r):5.3f} PERM: {btc_perm_r.corr(eth_perm_r):5.3f}")
 
-    plt.style.use("dark_background")    
-    np.log(btc_real['close']).diff().cumsum().plot(color='orange', label='BTCUSD')
-    np.log(eth_real['close']).diff().cumsum().plot(color='purple', label='ETHUSD')
+    plt.style.use("dark_background")
+    np.log(btc_real_aligned['close']).diff().cumsum().plot(color='orange', label='BTCUSDT')
+    np.log(eth_real_aligned['close']).diff().cumsum().plot(color='purple', label='ETHUSDT')
     
     plt.ylabel("Cumulative Log Return")
-    plt.title("Real BTCUSD and ETHUSD")
+    plt.title("Real BTCUSDT and ETHUSDT")
     plt.legend()
     plt.show()
 
-    np.log(btc_perm['close']).diff().cumsum().plot(color='orange', label='BTCUSD')
-    np.log(eth_perm['close']).diff().cumsum().plot(color='purple', label='ETHUSD')
-    plt.title("Permuted BTCUSD and ETHUSD")
+    np.log(btc_perm['close']).diff().cumsum().plot(color='orange', label='BTCUSDT')
+    np.log(eth_perm['close']).diff().cumsum().plot(color='purple', label='ETHUSDT')
+    plt.title("Permuted BTCUSDT and ETHUSDT")
     plt.ylabel("Cumulative Log Return")
     plt.legend()
     plt.show()
